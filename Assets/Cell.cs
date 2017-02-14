@@ -18,16 +18,15 @@ public class Cell : MonoBehaviour
     private GameObject mp_cell;
 
     [SerializeField]
-    private Coordinates m_coordinates;
+    public Coordinates m_coordinates;
+    
 
     [SerializeField]
-    public GameObject m_topCellSlot;
+    public GameObject m_bottomRightCellSlot;
+
+
     [SerializeField]
-    public GameObject m_leftCellSlot;
-    [SerializeField]
-    public GameObject m_rightCellSlot;
-    [SerializeField]
-    public GameObject m_bottomCellSlot;
+    public GameObject m_bottomLeftCellSlot;
 
     [SerializeField]
     private BoxCollider2D m_generationTriggerCollider;
@@ -37,6 +36,21 @@ public class Cell : MonoBehaviour
 
     [SerializeField]
     private string m_debugCoordinates;
+
+    [SerializeField]
+    private MeshRenderer m_debugMeshRenderer;
+
+    public enum BlockType
+    {
+        Coin,
+        Platform,
+        Spike
+    }
+
+    public bool m_alive;
+
+    [SerializeField]
+    private BlockType m_blockType;
 
     // Use this for initialization
     void Start()
@@ -69,111 +83,98 @@ public class Cell : MonoBehaviour
         int stepsAhead = 0;
         Cell m_currentStalagmite = this;
 
-        Queue<Cell> explorationFrontier = new Queue<Cell>();
+        Queue<Coordinates> explorationFrontier = new Queue<Coordinates>();
         HashSet<string> visited = new HashSet<string>();
 
+        CellMaster.ms_instance.AddCell(this.m_coordinates, this);
+        explorationFrontier.Enqueue(this.m_coordinates);
 
-        explorationFrontier.Enqueue(this);
+        //This system doesn't work and needs to be fixed results in some weird combinatorial explosion at a central location
 
-        while (stepsAhead < 1000 && explorationFrontier.Count > 0)
+        while (stepsAhead < 200 && explorationFrontier.Count > 0)
         {
             //pop a cell of of the queue
-            Cell current = explorationFrontier.Dequeue();
-            CellMaster.ms_instance.AddCell(current.m_coordinates, current);
+            Coordinates currentCoordinates = explorationFrontier.Dequeue();
 
+            Cell currentCell = CellMaster.ms_instance.GetCell(currentCoordinates);
+            
+            stepsAhead++;
 
-            if (visited.Contains(current.m_coordinates.GetString()))
+            if (visited.Contains(currentCoordinates.GetString()))
             {
                 continue;
             }
 
-            
-            Coordinates topCellCoordinates = new Coordinates(current.m_coordinates.m_x, current.m_coordinates.m_y + 1);
+            int alive = 0;
+            int dead = 0;
 
-
-            Coordinates bottomCellCoordinates = new Coordinates(current.m_coordinates.m_x, current.m_coordinates.m_y - 1);
-
-
-            Coordinates leftCellCoordinates = new Coordinates(current.m_coordinates.m_x - 1, current.m_coordinates.m_y);
-
-
-            Coordinates rightCellCoordinates = new Coordinates(current.m_coordinates.m_x + 1, current.m_coordinates.m_y);
-            
-            
-
-
-            if (CellMaster.ms_instance.HasCell(topCellCoordinates))
+            for (int xMod = -1; xMod <= 1; xMod++)
             {
-                current.m_topCell = CellMaster.ms_instance.GetCell(topCellCoordinates);
+                for (int yMod = -1; yMod <= 1; yMod++)
+                {                    
+
+                    Coordinates cellCoordinate = new Coordinates(currentCoordinates.m_x + xMod, currentCoordinates.m_y + yMod);
+                    Cell cell = null;
+                    if (CellMaster.ms_instance.HasCell(cellCoordinate))
+                    {
+                        //tally alive or dead
+
+                        cell = CellMaster.ms_instance.GetCell(cellCoordinate);
+
+
+                        if (cell.m_alive)
+                        {
+                            alive++;
+                        }
+                        else
+                        {
+                            dead++;
+                        }
+                    }
+                    else
+                    {
+                        dead++;
+                        cell = GameObject.Instantiate(mp_cell, currentCell.transform.position + new Vector3(4 * xMod, 4 * yMod, 0), transform.rotation, null).GetComponent<Cell>();
+                        CellMaster.ms_instance.AddCell(cellCoordinate,cell);
+                    }
+                    cell.m_coordinates = cellCoordinate;
+
+                    explorationFrontier.Enqueue(cellCoordinate);
+                }
+
+
+
+                visited.Add(currentCoordinates.GetString());
+
+
             }
-            else
-            {
-                current.m_topCell = GameObject.Instantiate(mp_cell, current.m_topCellSlot.transform.position, current.m_topCellSlot.transform.rotation, null).GetComponent<Cell>();
-                current.m_topCell.m_coordinates = topCellCoordinates;
-            }
-
-
-
-            if (CellMaster.ms_instance.HasCell(bottomCellCoordinates))
-            {
-                current.m_bottomCell = CellMaster.ms_instance.GetCell(bottomCellCoordinates);
-            }
-            else
-            {
-                current.m_bottomCell = GameObject.Instantiate(mp_cell, current.m_bottomCellSlot.transform.position, current.m_bottomCellSlot.transform.rotation, null).GetComponent<Cell>();
-                current.m_bottomCell.m_coordinates = bottomCellCoordinates;
-            }
-
-
-
-            if (CellMaster.ms_instance.HasCell(leftCellCoordinates))
-            {
-                current.m_leftCell = CellMaster.ms_instance.GetCell(leftCellCoordinates);
-            }
-            else
-            {
-                current.m_leftCell = GameObject.Instantiate(mp_cell, current.m_leftCellSlot.transform.position, current.m_leftCellSlot.transform.rotation, null).GetComponent<Cell>();
-                current.m_leftCell.m_coordinates = leftCellCoordinates;
-            }
-
-
-            if (CellMaster.ms_instance.HasCell(rightCellCoordinates))
-            {
-                current.m_rightCell = CellMaster.ms_instance.GetCell(rightCellCoordinates);
-            }
-            else
-            {
-                current.m_rightCell = GameObject.Instantiate(mp_cell, current.m_rightCellSlot.transform.position, current.m_rightCellSlot.transform.rotation, null).GetComponent<Cell>();
-                current.m_rightCell.m_coordinates = rightCellCoordinates;
-            }
-
-
-            CellMaster.ms_instance.AddCell(current.m_topCell.m_coordinates, current.m_topCell);
-
-            CellMaster.ms_instance.AddCell(current.m_bottomCell.m_coordinates, current.m_bottomCell);
-
-            CellMaster.ms_instance.AddCell(current.m_leftCell.m_coordinates, current.m_leftCell);
-
-            CellMaster.ms_instance.AddCell(current.m_rightCell.m_coordinates, current.m_rightCell);
-
-
-            explorationFrontier.Enqueue(current.m_topCell);
-
-            explorationFrontier.Enqueue(current.m_bottomCell);
-
-            explorationFrontier.Enqueue(current.m_leftCell);
-
-            explorationFrontier.Enqueue(current.m_rightCell);
-
-
-            visited.Add(current.m_coordinates.GetString());
-
-            stepsAhead++;
-
         }
+    }
 
+
+
+
+
+    private void SetPlatform()
+    {
 
     }
+
+    private void SetSpike()
+    {
+
+    }
+
+    private void SetEmpty()
+    {
+
+    }
+
+    private void SetCoin()
+    {
+
+    }
+
 
     public void SetDebugCoordinates()
     {

@@ -24,6 +24,7 @@ public class CellMaster : MonoBehaviour {
             return;
         }
         m_cells.Add(coordinates.GetString(), cell);
+        cell.m_coordinates = coordinates;
         cell.SetDebugCoordinates();
     }
 
