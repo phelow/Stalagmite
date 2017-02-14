@@ -19,7 +19,7 @@ public class Cell : MonoBehaviour
 
     [SerializeField]
     public Coordinates m_coordinates;
-    
+
 
     [SerializeField]
     public GameObject m_bottomRightCellSlot;
@@ -40,17 +40,31 @@ public class Cell : MonoBehaviour
     [SerializeField]
     private MeshRenderer m_debugMeshRenderer;
 
-    public enum BlockType
-    {
-        Coin,
-        Platform,
-        Spike
-    }
-
-    public bool m_alive;
+    [SerializeField]
+    private GameObject m_spikeSpawnSpot;
 
     [SerializeField]
-    private BlockType m_blockType;
+    private GameObject m_coinSpawnSpot;
+
+    [SerializeField]
+    private GameObject m_platformSpawnSpot;
+
+    private GameObject m_ownedSpike = null;
+    private GameObject m_ownedCoin = null;
+    private GameObject m_ownedPlatform = null;
+
+    [SerializeField]
+    private GameObject mp_spike;
+
+    [SerializeField]
+    private GameObject mp_coin;
+
+    [SerializeField]
+    private GameObject mp_platform;
+
+
+
+    public bool m_alive;
 
     // Use this for initialization
     void Start()
@@ -97,7 +111,7 @@ public class Cell : MonoBehaviour
             Coordinates currentCoordinates = explorationFrontier.Dequeue();
 
             Cell currentCell = CellMaster.ms_instance.GetCell(currentCoordinates);
-            
+
             stepsAhead++;
 
             if (visited.Contains(currentCoordinates.GetString()))
@@ -111,7 +125,7 @@ public class Cell : MonoBehaviour
             for (int xMod = -1; xMod <= 1; xMod++)
             {
                 for (int yMod = -1; yMod <= 1; yMod++)
-                {                    
+                {
 
                     Coordinates cellCoordinate = new Coordinates(currentCoordinates.m_x + xMod, currentCoordinates.m_y + yMod);
                     Cell cell = null;
@@ -135,8 +149,14 @@ public class Cell : MonoBehaviour
                     {
                         dead++;
                         cell = GameObject.Instantiate(mp_cell, currentCell.transform.position + new Vector3(4 * xMod, 4 * yMod, 0), transform.rotation, null).GetComponent<Cell>();
-                        CellMaster.ms_instance.AddCell(cellCoordinate,cell);
+                        CellMaster.ms_instance.AddCell(cellCoordinate, cell);
+
+                        if (Random.Range(0, 100) < 50)
+                        {
+                            cell.m_alive = true;
+                        }
                     }
+
                     cell.m_coordinates = cellCoordinate;
 
                     explorationFrontier.Enqueue(cellCoordinate);
@@ -144,10 +164,71 @@ public class Cell : MonoBehaviour
 
 
 
-                visited.Add(currentCoordinates.GetString());
 
 
             }
+
+            if (currentCell.m_generationTriggerCollider != null)
+            {
+
+                if (currentCell.m_alive)
+                {
+                    if (alive < 2)
+                    {
+                        currentCell.m_alive = false;
+                    }
+
+                    if (alive > 3)
+                    {
+                        currentCell.m_alive = false;
+                    }
+
+                    if (alive == 2)
+                    {
+                        //spawn a platform
+                        if (m_ownedPlatform == null)
+                        {
+                            m_ownedPlatform = GameObject.Instantiate(mp_platform, currentCell.m_platformSpawnSpot.transform.position, currentCell.m_platformSpawnSpot.transform.rotation, null);
+                            Destroy(currentCell.m_ownedSpike);
+                            Destroy(currentCell.m_ownedCoin);
+                        }
+                    }
+
+                    if (alive == 3)
+                    {
+                        //spawn a spike
+                        if (currentCell.m_ownedSpike == null)
+                        {
+                            currentCell.m_ownedSpike = GameObject.Instantiate(mp_spike, currentCell.m_spikeSpawnSpot.transform.position, currentCell.m_spikeSpawnSpot.transform.rotation, null);
+                            Destroy(currentCell.m_ownedPlatform);
+                            Destroy(currentCell.m_ownedCoin);
+                        }
+                    }
+                }
+                else
+                {
+                    if (alive == 3)
+                    {
+                        m_alive = true;
+                    }
+
+                    if (alive == 0)
+                    {
+                        //spawn a coin
+                        if (currentCell.m_ownedCoin == null)
+                        {
+                            currentCell.m_ownedCoin = GameObject.Instantiate(mp_coin, currentCell.m_coinSpawnSpot.transform.position, currentCell.m_coinSpawnSpot.transform.rotation, null);
+                            Destroy(currentCell.m_ownedPlatform);
+                            Destroy(currentCell.m_ownedSpike);
+                        }
+                    }
+                }
+
+
+            }
+            visited.Add(currentCoordinates.GetString());
+
+
         }
     }
 
